@@ -1,26 +1,24 @@
 #+AUTHOR: Daniil Shvalov
 #+EMAIL: daniil.shvalov@gmail.com
-# #+TITLE: ...
-#+LANGUAGE: ru
-#+EXPORT_FILE_NAME: TUTORIAL.md
+#+TITLE: Boost.Asio
 #+OPTIONS: toc:nil
 
-* Содержание
-:PROPERTIES:
-:TOC:      :include all :depth 3 :force (nothing) :ignore (this) :local (nothing)
-:END:
-:CONTENTS:
-- [[#введение][Введение]]
-- [[#tcp-и-udp][TCP и UDP]]
-  - [[#transmission-control-protocol--tcp][Transmission Control Protocol — TCP]]
-  - [[#user-datagram-protocol--udp][User Datagram Protocol — UDP]]
-- [[#самый-простой-сервер][Самый простой сервер]]
-- [[#прощаемся-с-синхронностью][Прощаемся с синхронностью]]
-- [[#асинхронный-tcp-сервер][Асинхронный TCP-сервер]]
-:END:
+#+LANGUAGE: ru
+#+EXPORT_FILE_NAME: TUTORIAL.md
 
+#+SETUPFILE: theme.org
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="styles.css"/>
 
+#+LATEX_HEADER: \usepackage[AUTO]{babel}
+#+LATEX_HEADER: \usepackage{fontspec}
+#+LATEX_HEADER: \usepackage{titletoc}
+#+LATEX_HEADER: \setmainfont{PT Serif}
 
+#+begin_export latex
+  \clearpage
+#+end_export
+
+#+TOC: headlines 2 
 
 * Введение
 :PROPERTIES:
@@ -97,7 +95,7 @@ TCP-соединение очень похоже на файл: мы откры�
 <<code:simple_server>>
 Теперь давайте взглянем на следующий [[./code/simple_server.cpp][исходный код]]:
 #+begin_src cpp :tangle code/simple_server.cpp
-#include <boost/asio.hpp> (ref:simple_server)
+#include <boost/asio.hpp>
 
 int main() {
     std::uint16_t port = 15001;
