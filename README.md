@@ -2,11 +2,11 @@
 
 Руководство по созданию клиент-серверных систем с помощью C++, библиотек Boost.Asio и Boost.Beast.
 
-<div style="text-align: center; font-size: 36px;">
+<h1 align="center">
 
 [ЧИТАТЬ ОНЛАЙН](./TUTORIAL.md)
 
-</div>
+</h1>
 
 
 

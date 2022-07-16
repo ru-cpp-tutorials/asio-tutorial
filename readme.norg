@@ -1,11 +1,11 @@
 * Boost.Asio: Асинхронность в C++
   Руководство по созданию клиент-серверных систем с помощью C++, библиотек Boost.Asio и Boost.Beast.
 
-  <div style="text-align: center; font-size: 36px;">
+  <h1 align="center">
 
   {./TUTORIAL.md}[ЧИТАТЬ ОНЛАЙН]
 
-  </div>
+  </h1>
 
 
 * О руководстве
