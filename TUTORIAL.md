@@ -16,6 +16,7 @@
   * [Асинхронные функции](#%D0%B0%D1%81%D0%B8%D0%BD%D1%85%D1%80%D0%BE%D0%BD%D0%BD%D1%8B%D0%B5-%D1%84%D1%83%D0%BD%D0%BA%D1%86%D0%B8%D0%B8)
   * [error_code](#error_code)
 - [Дальнейшее изучение](#%D0%B4%D0%B0%D0%BB%D1%8C%D0%BD%D0%B5%D0%B9%D1%88%D0%B5%D0%B5-%D0%B8%D0%B7%D1%83%D1%87%D0%B5%D0%BD%D0%B8%D0%B5)
+- [TCP чат-сервер](#tcp-%D1%87%D0%B0%D1%82-%D1%81%D0%B5%D1%80%D0%B2%D0%B5%D1%80)
 
 <!-- tocstop -->
 
@@ -297,18 +298,18 @@ void start() {
 Обратите внимание, что класс `session` унаследован от класса `std::enable_shared_from_this`. Также заметим, что сессия захватывает в лямбду обработчика завершения указатель на разделяемую копию себя посредством `shared_from_this`. Мы делаем это, чтобы продлить время жизни сессии до тех пор, пока не будет вызван обработчик завершения. После этого нам не нужно ничего делать — указатель на разделяемый объект выйдет из области видимости и сразу же уничтожится после завершения работы обработчика. В большинстве случаев (но не во всех), это обычный способ для работы с сессиями.
 
 Теперь вы знаете как написать простой асинхронный TCP-сервер и как он работает. Последнее, что нам необходимо сделать — протестировать в реальной жизни. Запустим сервер в терминале:
-```shell
+```
 ./server
 ```
 
 Теперь в другом терминале запустим `telnet`, подключимся к 15001 порту, введем `Hello asio!` и нажмем `Enter` (который введет ожидаемый символ `"\n"`):
-```shell
+```
 telnet localhost 15001
 Hello asio!
 ```
 
 В первом терминале вы должны увидеть это сообщение:
-```shell
+```
 ./server
 Hello asio!
 ```
@@ -337,14 +338,14 @@ Hello asio!
 ```cpp
 try {
     socket.connect(endpoint);
-} catch (boost::system::system_error const& e) {
+} catch (const boost::system::system_error& e) {
     std::cerr << e.what() << "\n";
 }
 ```
 
 Вы можете получить `error_code` из `system_error`, вызвав метод `code()`:
 ```cpp
-catch (boost::system::system_error const& e) {
+catch (const boost::system::system_error& e) {
     boost::system::error_code error = e.code();
     std::cerr << error.message() << "\n";
 }
@@ -416,6 +417,7 @@ socket.async_receive(
 
 
 # Дальнейшее изучение
+
 
 В следующем разделе мы рассмотрим пример более масштабного сервера — TCP чат-сервера. Но перед этим вы должны кое-что узнать.
 
@@ -492,7 +494,7 @@ using message_handler = std::function<void(std::string)>;
 
 // На стороне сервера
 void server::create_session() {
-    auto client = std::make_shared<session>([&](std::string const& message) {
+    auto client = std::make_shared<session>([&](const std::string& message) {
         std::cout << "We got a message: " << message;
     });
 }
@@ -509,3 +511,216 @@ void session::async_receive() {
 Более хороший не означает, что лучший. Есть несколько способов передавать данные между сессиями и сервером. Какой из них является лучшим — зависит от деталей реализации вашего приложения.
 
 Отлично, теперь вы знаете все, что нужно знать, чтобы рассмотреть следующий пример — простой TCP чат-сервер.
+
+
+# TCP чат-сервер
+
+
+Вы уже знаете какие вещи откуда берутся, поэтому отныне мы будем использовать псевдонимы типов, чтобы сделать названия типов короче.
+
+В этом разделе мы рассмотрим очень простой чат-сервер. Этот сервер не будет поддерживать пользовательские ники, цвета и другие аспекты, специфичные для конкретного пользователя. Мы отказываемся от этого, чтобы сервер был более простым.
+
+В предыдущем разделе мы подробно обсудили новые вещи, которые будут использоваться в этом сервере. Поэтому в этом разделе мы рассмотрим сервер лишь вкратце.
+
+Полный исходный код, который мы будем разбирать в этом разделе, вы можете найти [здесь](./code/tcp_chat_server.cpp). После чтения этого раздела качайте его, скомпилируйте, посмотрите как он работает. Попытайтесь самостоятельно понять, как все работает, основываясь на том, что вы узнали за все это время.  В конце концов, вам нужно научиться понимать код.
+
+Ну что ж, начнем. Первое, что вы увидите в исходном коде — это включение заголовков и использование псевдонимов типов:
+```cpp
+#include <boost/asio.hpp>
+
+#include <optional>
+#include <queue>
+#include <unordered_set>
+
+namespace io = boost::asio;
+using tcp = io::ip::tcp;
+using error_code = boost::system::error_code;
+using namespace std::placeholders;
+
+using message_handler = std::function<void(std::string)>;
+using error_handler = std::function<void()>;
+```
+
+Пока что все должно быть очевидно. Функция `main` выглядит точно также, как и в предыдущем примере (за исключением использования псевдонимов типов):
+```cpp
+int main() {
+    io::io_context io_context;
+    server srv(io_context, 15001);
+    srv.async_accept();
+    io_context.run();
+    return 0;
+}
+```
+
+В этот раз класс сервера и класс сессии немного больше, но поскольку мы уже разобрали часть кода, рассмотрим только ключевые моменты.
+
+Давайте начнем с ключевых моментов сессии. Функция `start` теперь принимает обработчики событий:
+```cpp
+void start(message_handler&& on_message, error_handler&& on_error) {
+    this->on_message = std::move(on_message);
+    this->on_error = std::move(on_error);
+    async_read();
+}
+```
+
+Функция `post` добавляет в очередь сообщение, адресованное клиенту. Отправка сообщения начинается, если в данный момент не отправляется предыдущее сообщение:
+```cpp
+void post(const std::string& message) {
+    bool idle = outgoing.empty();
+    outgoing.push(message);
+
+    if (idle) {
+        async_write();
+    }
+}
+```
+
+Асинхронные функции чтения и записи выделены в отдельные методы класса сессии. Функция `async_read` считывает данные с удаленного клиента в `streambuf`, а функция `async_write` отправляет первое в очереди сообщение удаленному клиенту:
+```cpp
+void async_read() {
+    io::async_read_until(
+        socket,
+        streambuf,
+        "\n",
+        std::bind(&session::on_read, shared_from_this(), _1, _2));
+}
+
+void async_write() {
+    io::async_write(
+        socket,
+        io::buffer(outgoing.front()),
+        std::bind(&session::on_write, shared_from_this(), _1, _2));
+}
+```
+
+Обработчик чтения выполняет следующие действия:
+1. форматирует сообщение, полученное от клиента;
+2. передает отформатированное сообщение в обработчик сообщений;
+3. начинает ожидать следующего сообщения.
+
+Кроме того, он также выполняет обработку ошибок:
+```cpp
+void on_read(error_code error, std::size_t bytes_transferred) {
+    if (!error) {
+        std::stringstream message;
+        message << socket.remote_endpoint(error) << ": "
+                << std::istream(&streambuf).rdbuf();
+        streambuf.consume(bytes_transferred);
+        on_message(message.str());
+        async_read();
+    } else {
+        socket.close(error);
+        on_error();
+    }
+}
+```
+
+Обработчик записи работает так:
+1. удаляет сообщение из очереди;
+2. если в очереди еще остались сообщения, начинает отправку следующего сообщения.
+
+Он также выполняет обработку ошибок:
+```cpp
+void on_write(error_code error, std::size_t bytes_transferred) {
+    if (!error) {
+        outgoing.pop();
+
+        if (!outgoing.empty()) {
+            async_write();
+        }
+    } else {
+        socket.close(error);
+        on_error();
+    }
+}
+```
+
+У класса сессии следующие атрибуты:
+```cpp
+tcp::socket socket;               // Сокет клиента
+io::streambuf streambuf;          // Буфер для входящих данных
+std::queue<std::string> outgoing; // Очередь исходящих сообщений
+message_handler on_message;       // Обработчик сообщений
+error_handler on_error;           // Обработчик ошибок
+```
+
+Теперь давайте рассмотрим класс сервера. Начнем с атрибутов:
+```cpp
+io::io_context& io_context;
+tcp::acceptor acceptor;
+std::optional<tcp::socket> socket;
+std::unordered_set<session::pointer> clients;  // Список подключенных клиентов
+```
+
+Функция `post` рассылает сообщение всем подключенным клиентам. Эта функция также используется в качестве обработчика сообщений (см. далее):
+```cpp
+void post(const std::string& message) {
+    for (auto& client : clients) {
+        client->post(message);
+    }
+}
+```
+
+Функция `async_accept` приветствует только что подключившегося клиента и сообщает всем остальным клиентам о новоприбывшем. Здесь также реализована обработка ошибок, которая в случае чего удаляет сессию из списка клиентов, после чего уведомляет об этом остальных клиентов:
+```cpp
+void async_accept() {
+    socket.emplace(io_context);
+
+    acceptor.async_accept(*socket, [&](error_code error) {
+        auto client = std::make_shared<session>(std::move(*socket));
+        client->post("Welcome to chat\n\r");
+        post("We have a newcomer\n\r");
+
+        clients.insert(client);
+
+        client->start(
+            std::bind(&server::post, this, _1),
+            [&, weak = std::weak_ptr(client)] {
+                if (auto shared = weak.lock();
+                    shared && clients.erase(shared)) {
+                    post("We are one less\n\r");
+                }
+            });
+
+        async_accept();
+    });
+}
+```
+
+Теперь давайте запустим наш сервер:
+```
+./server
+```
+
+Также запустим клиент `telnet`:
+```
+telnet localhost 15001
+
+Welcome to chat
+```
+
+Запустив второй клиент `telnet`, на первом клиенте вы увидите:
+```
+telnet localhost 15001
+
+Welcome to chat
+We have a newcomer
+```
+
+Запустите еще один клиент, напишите что-нибудь в чат и нажмите `Enter`:
+```
+telnet localhost 15001
+
+Welcome to chat
+Hello guys
+```
+
+Остальные клиенты должны увидеть что-то вроде этого:
+```
+telnet localhost 15001
+
+Welcome to chat
+We have a newcomer
+We have a newcomer
+127.0.0.1:47235: Hello guys
+```
