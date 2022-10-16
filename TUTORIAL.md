@@ -142,27 +142,25 @@ TCP-соединение представляет собой двунаправ�
 
 Теперь давайте взглянем на следующий [исходный код](./code/simple_server.cpp):
 
-
-
 ```cpp
 #include <boost/asio.hpp>
 
 int main() {
-  std::uint16_t port = 15001;
+    std::uint16_t port = 15001;
 
-  boost::asio::io_context io_context;
-  boost::asio::ip::udp::endpoint receiver(boost::asio::ip::udp::v4(), port);
-  boost::asio::ip::udp::socket socket(io_context, receiver);
+    boost::asio::io_context io_context;
+    boost::asio::ip::udp::endpoint receiver(boost::asio::ip::udp::v4(), port);
+    boost::asio::ip::udp::socket socket(io_context, receiver);
 
-  while (true) {
-    char buffer[65536];
-    boost::asio::ip::udp::endpoint sender;
-    std::size_t bytes_transferred =
-      socket.receive_from(boost::asio::buffer(buffer), sender);
-    socket.send_to(boost::asio::buffer(buffer, bytes_transferred), sender);
-  }
+    while (true) {
+        char buffer[65536];
+        boost::asio::ip::udp::endpoint sender;
+        std::size_t bytes_transferred =
+            socket.receive_from(boost::asio::buffer(buffer), sender);
+        socket.send_to(boost::asio::buffer(buffer, bytes_transferred), sender);
+    }
 
-  return 0;
+    return 0;
 }
 ```
 
@@ -252,9 +250,9 @@ socket.async_receive_from(
     buffer,
     sender,
     [&](boost::system::error_code error, std::size_t bytes_transferred) {
-      // Эта лямбда-функция будет вызвана после получения сообщения
-      std::cout << "Message is received, message size is "
-        << bytes_transferred;
+        // Эта лямбда-функция будет вызвана после получения сообщения
+        std::cout << "Message is received, message size is "
+                  << bytes_transferred;
     });
 ```
 
@@ -280,69 +278,67 @@ socket.async_receive_from(
 - Выводить полученные данные в стандартный вывод.
 - Закрывать соединение.
 
-
 Теперь давайте взглянем на полноценный пример такого сервера. Ниже мы все
 разложим по полочкам и посмотрим как все устроено. Как и прежде, мы
-пренебрегаем обработкой ошибок, чтобы код выглядел более понятным. Об
-обработке ошибок мы поговорим позже.
+пренебрегаем обработкой ошибок, чтобы код выглядел более понятным. Об обработке
+ошибок мы поговорим позже.
 
 ```cpp
 #include <boost/asio.hpp>
-
 #include <iostream>
 #include <optional>
 
 class session: public std::enable_shared_from_this<session> {
-public:
-  session(boost::asio::ip::tcp::socket&& socket) :
-    socket(std::move(socket)) {}
+  public:
+    session(boost::asio::ip::tcp::socket&& socket) :
+        socket(std::move(socket)) {}
 
-  void start() {
-    boost::asio::async_read_until(
-        socket,
-        streambuf,
-        '\n',
-        [self = shared_from_this()](
-          boost::system::error_code error,
-          std::size_t bytes_transferred) {
-          std::cout << std::istream(&self->streambuf).rdbuf();
-        });
-  }
+    void start() {
+        boost::asio::async_read_until(
+            socket,
+            streambuf,
+            '\n',
+            [self = shared_from_this()](
+                boost::system::error_code error,
+                std::size_t bytes_transferred) {
+                std::cout << std::istream(&self->streambuf).rdbuf();
+            });
+    }
 
-private:
-  boost::asio::ip::tcp::socket socket;
-  boost::asio::streambuf streambuf;
+  private:
+    boost::asio::ip::tcp::socket socket;
+    boost::asio::streambuf streambuf;
 };
 
 class server {
-public:
-  server(boost::asio::io_context& io_context, std::uint16_t port) :
-    io_context(io_context),
-    acceptor(
-      io_context,
-      boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) {}
+  public:
+    server(boost::asio::io_context& io_context, std::uint16_t port) :
+        io_context(io_context),
+        acceptor(
+            io_context,
+            boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), port)) {}
 
-  void async_accept() {
-    socket.emplace(io_context);
+    void async_accept() {
+        socket.emplace(io_context);
 
-    acceptor.async_accept(*socket, [&](boost::system::error_code error) {
-                              std::make_shared<session>(std::move(*socket))->start();
-                              async_accept();
-                            });
-  }
+        acceptor.async_accept(*socket, [&](boost::system::error_code error) {
+            std::make_shared<session>(std::move(*socket))->start();
+            async_accept();
+        });
+    }
 
-private:
-  boost::asio::io_context& io_context;
-  boost::asio::ip::tcp::acceptor acceptor;
-  std::optional<boost::asio::ip::tcp::socket> socket;
+  private:
+    boost::asio::io_context& io_context;
+    boost::asio::ip::tcp::acceptor acceptor;
+    std::optional<boost::asio::ip::tcp::socket> socket;
 };
 
 int main() {
-  boost::asio::io_context io_context;
-  server srv(io_context, 15001);
-  srv.async_accept();
-  io_context.run();
-  return 0;
+    boost::asio::io_context io_context;
+    server srv(io_context, 15001);
+    srv.async_accept();
+    io_context.run();
+    return 0;
 }
 ```
 
@@ -358,11 +354,11 @@ int main() {
 `io_context.run()`. Давайте взглянем на функцию `main`:
 ```cpp
 int main() {
-  boost::asio::io_context io_context;
-  server srv(io_context, 15001);
-  srv.async_accept();
-  io_context.run();
-  return 0;
+    boost::asio::io_context io_context;
+    server srv(io_context, 15001);
+    srv.async_accept();
+    io_context.run();
+    return 0;
 }
 ```
 
@@ -396,9 +392,9 @@ acceptor(io_context, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), 
 Теперь давайте рассмотрим вызов функцию `async_accept` у `acceptor`:
 ```cpp
 acceptor.async_accept(*socket, [&](boost::system::error_code error) {
-                          std::make_shared<session>(std::move(*socket))->start();
-                          async_accept();
-                        });
+    std::make_shared<session>(std::move(*socket))->start();
+    async_accept();
+});
 ```
 
 Словами это можно описать так: «Ожидай входящее соединение, а после того как
@@ -425,15 +421,15 @@ acceptor.async_accept(*socket, [&](boost::system::error_code error) {
 набор функций, связанный с соединением. Давайте рассмотрим функцию `start`:
 ```cpp
 void start() {
-  boost::asio::async_read_until(
-      socket,
-      streambuf,
-      '\n',
-      [self = shared_from_this()](
-        boost::system::error_code error,
-        std::size_t bytes_transferred) {
-        std::cout << std::istream(&self->streambuf).rdbuf();
-      });
+    boost::asio::async_read_until(
+        socket,
+        streambuf,
+        '\n',
+        [self = shared_from_this()](
+            boost::system::error_code error,
+            std::size_t bytes_transferred) {
+            std::cout << std::istream(&self->streambuf).rdbuf();
+        });
 }
 ```
 
@@ -480,7 +476,6 @@ Hello asio!
 Круто! Вы только начали, а уже знаете, как написать почти любой
 профессиональный асинхронный TCP-сервер с помощью современного C++ и
 Boost.Asio. Поздравляем!
-
 
 
 # Обработка ошибок
@@ -582,17 +577,17 @@ size)`.
 socket.async_receive(
     buffer,
     [&](boost::system::error_code error, std::size_t bytes_transferred) {
-        if (!error) {
-            // Асинхронная операция выполнена успешно.
-            // Соединение все еще установлено
-        } else if (error == boost::asio::error::eof) {
-            // Соединение было разорвано.
-            // В буфере по-прежнему хранятся полученные данные,
-            // численно равные `bytes_transferred` (в байтах)
-        } else {
-            // Что-то пошло не так
-            std::cerr << error.message() << "\n";
-        }
+      if (!error) {
+        // Асинхронная операция выполнена успешно.
+        // Соединение все еще установлено
+      } else if (error == boost::asio::error::eof) {
+        // Соединение было разорвано.
+        // В буфере по-прежнему хранятся полученные данные,
+        // численно равные `bytes_transferred` (в байтах)
+      } else {
+        // Что-то пошло не так
+        std::cerr << error.message() << "\n";
+      }
     });
 ```
 
@@ -640,7 +635,7 @@ std::cout << "Remote endpoint: " << endpoint << "\n";
 
 Если запустить этот код, вы скорее всего увидите что-то на подобии этого:
 ```sh
-Remote endpoint: 127.0.0.1:38529
+  Remote endpoint: 127.0.0.1:38529
 ```
 
 Иногда вам может понадобиться отменить асинхронную операцию, которая была
@@ -1054,10 +1049,10 @@ class server {
             srv.broadcast("We have a newcomer");
         });
 
-        srv.on_leave([&] { srv.broadcast("We are one less"); })
+        srv.on_leave([&] { srv.broadcast("We are one less"); });
 
-            srv.on_message(
-                [&](message_type const& message) { srv.broadcast(message); })
+        srv.on_message(
+            [&](message_type const& message) { srv.broadcast(message); });
     }
 
     void start() {
