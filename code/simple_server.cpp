@@ -1,4 +1,4 @@
-#include <boost/asio.hpp> (ref:simple_server)
+#include <boost/asio.hpp>
 
 int main() {
     std::uint16_t port = 15001;
